@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getQuotes } from '../api';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,7 +10,7 @@ const QuoteList = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token') || '';
 
-  const fetchQuotes = async () => {
+  const fetchQuotes = useCallback(async (mergeData) => {
     if (loading || !hasMore) return;
     setLoading(true);
     try {
@@ -18,8 +18,9 @@ const QuoteList = () => {
       if (data.length === 0) {
         setHasMore(false);
       } else {
-        console.log({data});
-        setQuotes((prevQuotes) => ([...prevQuotes, ...data]));
+        setQuotes((prevQuotes) => {
+          return mergeData ? ([...prevQuotes, ...data]) : data
+        });
         setOffset(offset + 20);
       }
     } catch (err) {
@@ -27,7 +28,24 @@ const QuoteList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [hasMore, loading, offset, token]);
+
+  const handleScroll = useCallback(() => {
+    const { documentElement = {} } = document || {};
+    const { scrollHeight = 0, scrollTop = 0 } = documentElement || {};
+    const bottom = Math.floor(scrollHeight) === Math.floor(scrollTop + window?.innerHeight);
+    if (bottom && hasMore && !loading) {
+      fetchQuotes(true);
+    }
+  }, [hasMore, loading, fetchQuotes]);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScroll]);
 
   useEffect(() => {
     fetchQuotes();
@@ -36,21 +54,19 @@ const QuoteList = () => {
 
   return (
     <div className="quote-list">
-      {quotes.map(({ created_at, username, mediaUrl, id, text }) => (
+      {quotes.filter(({ mediaUrl }) => mediaUrl).map(({ createdAt, username, mediaUrl, id, text }) => (
         <div key={id} className="quote-item">
-          <div className='image-text-container' style={{ backgroundImage: `url(${mediaUrl})` }}>
+          <div className='image-text-container'>
             <img src={mediaUrl} alt="Quote media" />
             <div className="overlay">{text}</div>
           </div>
           <div className="quote-footer">
             <p>{username}</p>
-            <p>{new Date(created_at).toLocaleString()}</p>
+            <p>{new Date(createdAt).toLocaleString()}</p>
           </div>
         </div>
       ))}
-      {token && <button onClick={() => navigate('/quote-creation')} className='floating-btn left-bottom'>Create Quote</button>}
-      {hasMore && !loading && <button className='floating-btn right-bottom' onClick={fetchQuotes}>Load More</button>}
-      {loading && <button className='floating-btn right-bottom' >Loading...</button>}
+      {token && <button onClick={() => navigate('/quote-creation')} className='floating-btn right-bottom'>Create Quote</button>}
       {!hasMore && <p>No more quotes</p>}
     </div>
   );

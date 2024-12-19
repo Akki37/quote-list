@@ -95,6 +95,10 @@ textarea {
   text-align: center;
 }
 
+.quote-footer p {
+  font-size: 1rem;
+  font-weight: 600;
+}
 .floating-btn {
   position: fixed;
   z-index: 100;
